@@ -1,0 +1,215 @@
+---
+title: "EFA"
+author: "gganggang2"
+date: "2023-11-13"
+output: 
+  html_document: 
+    theme: readable
+---
+
+## Factor Analysis
+
+```{r package installation, results = "hide", eval = FALSE}
+
+install.packages("psych"); install.packages("lavaan")
+```
+
+```{r package library, results = "hide", message = FALSE}
+
+library(psych); library(lavaan)
+```
+
+```{r data loading}
+
+raqData <- read.delim("raq.dat", header = TRUE)
+raqMatrix <- cor(raqData)
+```
+
+### PCA(Principal Component Analysis)
+
+PCA와 EFA의 차이는 무엇이냐. 아래 사진을 보면 깔끔하다.
+
+[![Comparison of PCA & EFA](images/fig11c.png)](https://stats.oarc.ucla.edu/spss/seminars/introduction-to-factor-analysis/a-practical-introduction-to-factor-analysis/)
+
+즉 PCA는 Unique Variance가 없다고 가정하는 것이고 따라서 총 분산(Total Variance)은 공통 분산(Common Variance)과 동일하다. Unique Variance는 Specific Variance와 Error Variance로 나뉘는데, Specific Variance는 Communality에서 공통으로 설명하지 못하는 item(또는 Variable)이 고유하게 설명하는 Variance이고, Error Variance는 일종의 Measurement error이다. 따라서 Factor Analysis는 Total Variance Explained 값과 Total Variance가 같을 수가 없다. Unique Variance의 존재로 Communality가 항상 1일 수 없기 때문이다.
+
+```{r PCA1}
+
+pc1 <- principal(raqData, nfactors = 23, rotate = "none")
+pc1$loadings[,1] # Loadings; The first column of component matrix
+pc1$values[1] # Eigenvalues
+```
+
+-   PCA에서 Component Matrix를 찾아볼 수 있는데 이는 각 Item들의 Component와의 상관계수를 의미한다. **그러면 원상관행렬을 이용해서** Component와 Item의 상관행렬인 Component Matrix는 **어떤 공식으로 계산되는 것일까?** 여기서 Eigenvalue와 Eigenvector의 개념이 도입된다. **상관행렬의 Eigenvector들을 계산한 후, 이를 대응하는 Eigenvalue의 양의 제곱근과 곱하면 이것이 곧 Component Matrix가 되는 원리이다.**
+
+-   Component Matrix를 자세히 살펴 보자. 예를 들어 `pc1$loadings[,1]` 을 실행하면 Component Matrix의 첫 열이 나오는데, 이는 각 23개 문항의 첫 번째 Component와의 상관계수를 의미한다. 이 때 각 문항들과 해당 Component의 상관계수를 제곱하여 모두 더한 값이 해당 Component에 대응되는 Eigenvalue 값이 된다. 이 때 Eigenvalue는 '해당 Component가 정보를 얼마나 담고 있는지' 를 의미하며, Eigenvalue / Total Item number = % of Variance가 된다. 이를 확인하기 위해서는 `sum(pc1$loadings[,1]^2) = pc1$values[1]` , 그리고 `pc1$values[1]/pc1$factors = Proportion Var = Proportion Explained` 임을 체크하라.
+
+-   또한, `sum(pc1$values)` 는 eigenvalue를 모두 더한 값으로, 이는 `pc1$factors` 의 값과 동일하다. 이것은 곧 총 설명해야 하는 Total Variance 값이다. `sum(pc1$loadings[,i]^2)` 의 값을 모두 더하면 `sum(pc1$values)` 와 같은 값이고, 이는 각 열의 원소를 제곱해서 더한 것들의 총 합이므로 Component Matrix 모든 원소의 제곱합 즉 `sum(pc1$loadings^2)` 의 값과 같다.
+
+-   한편, `pc1$loadings[1,]` 을 실행하면 첫 행이 나오는데, 첫 행의 원소들을 각각 제곱하면 각 item을 해당 components들이 explain하는 percentage of Variance가 된다. 예를 들어, `pc1$loadings[1,1]^2` 의 의미는 첫 번째 item의 Variance를 첫 번째 component가 설명하는 정도가 된다. 그렇다면 PCA는 Unique Variance가 없으므로 모든 Component들에 의해 item들이 모두 설명되어야 한다. 즉 `sum(pc1$loadings[1,]^2)` 를 실행하면 1이 나온다는 의미이다.
+
+#### Questions in PCA
+
+-   **Eigenvectors** represent a weight for each eigenvalue. The eigenvector times the square root of the eigenvalue gives the **component loadings** which can be interpreted as the **correlation** of each item with the principal component: *HOW eigenvector times the square root of the eigenvalue becomes the correlation of the item with the principal component?*
+
+    -   *내 생각에는 ISLR Chapter 12를 읽어봐야 결론이 날 것 같다. **어떻게 Correlation Matrix의 Eigenvector의 성분이 해당 item(Variable)과 Component 사이의 상관계수가 되나.***
+
+    -   이것에 대한 이해는 EFA의 Component Matrix를 이해하기 위해서도 필요하다.
+
+-   Eigenvalues close to zero imply there is item multicollinearity, since all the variance can be taken up by the first component: **고윳값과 다중공선성의 관계에 대하여**
+
+한편, 다음과 같은 방법으로 간단한 Scree Plot을 그릴 수 있다.
+
+```{r pc1 screeplot}
+
+plot(pc1$values, type = "b", xlab = "Component Number", ylab = "Eigenvalue")
+```
+
+여기서 Elbow point 앞의 Component까지 Factor로써 선택하자는 의견들이 있다. 그러면 이 경우에는 Component가 한 개만 존재하게 된다! 다른 한 편으로는 Eigenvalue가 1보다 큰 값을 선택하는 방법이 있는데, `sum(pc1$values >= 1)` 을 통해 확인해보니 총 4개의 Component가 나온다. Factor 개수의 선택은 연구자 본인의 이론적 근거가 바탕이 되어야 한다.
+
+그러면 우리는 4개의 고정된 number of factors로 PCA를 실행해보도록 하겠다.
+
+```{r PCA2}
+
+pc2 <- principal(raqMatrix, nfactors = 4, rotate = "none")
+pc2
+```
+
+이 때 Component Matrix의 Factor Loading값은 `pc1$loadings` 행렬의 4열까지 가져온 것과 동일하다. 4개의 Component까지 뽑았을 때 Cumulative Var을 보면 총 분산의 50%까지 설명하는 것을 확인할 수 있다.
+
+여기서 h2의 값은 각 item들의 얼마만큼 Explained 되었는가를 보는 것, 즉 final communality extracted이다. 예를 들어, `sum(pc2$loadings[1,]^2) == pc2$communality[1]` 이 성립한다. 이것은 23개가 아닌 4개의 component만 추출했기 때문에 1보다 작은 값을 가진다. 참고로 u2 = 1 - h2인 듯 하다. 한 편, 이 factor loading의 제곱합들을 모든 문항에 대해서 합하면 4개의 components들의 eigenvalue 값의 합과 같다. 즉 `sum(pc2$loadings^2) == sum(pc2$communality) == sum(pc2$values[1:4])` 가 성립한다 (False가 나오는 건 Roundoff error 때문이다).
+
+아무튼 PCA의 핵심은 차원 축소이고, Unique Variance가 없다는 것을 전제한다는 것이 EFA와 구별되는 특징이다. Unique Variance가 없다는 것은 PCA에서 상관행렬을 사용한다는 이야기이고 이는 `diag(raqMatrix)` 의 원소가 모두 1임을 의미한다. 즉 h2 = communality 값이 1인 것이다.
+
+------------------------------------------------------------------------
+
+### EFA (Exploratory Factor Analysis)
+
+EFA는 PCA보다는 현실적으로, 우리가 item을 완벽하게 측정했다는 가정에서 시작하지 않는다. 즉 Unique Variance와 Error Variance의 존재를 인정하고, 이를 고려하여 요인을 축소하는 것이다. The unobserved or latent variable that makes up common variance is called a **factor**, hence the name factor analysis. 즉, PCA에서는 변수들의 선형 결합으로 Component를 표현할 수 있지만, latent construct를 측정하고자 하는 EFA에서는 error을 고려하기 때문에 보다 정교한 기법이 요구된다.
+
+EFA는 Initial Communalities가 PCA와는 다르게 1이 될 수 없다. 왜냐면 Communalities가 설명하지 못하는 Unique Variance가 존재하기 때문이다. 대신, Squared multiple correlation 값을 적용하게 된다. Communalities의 Initial Matrix에서 첫 번째 element는 다음 회귀분석의 R square 값과 동일하다 (Initial Matrix를 얻는 법은 모르겠다. SPSS를 통해 확인해보도록 하자).
+
+`summary(lm(Q01 ~ Q02 + Q03 + Q04 + Q05 + Q06 + Q07 + Q08 + Q09 + Q10 + Q11 + Q12 + Q13 + Q14 + Q15 + Q16 + Q17 + Q18 + Q19 + Q20 + Q21 + Q22 + Q23, data = raqData))`
+
+R에서 EFA를 돌리기 위한 함수는 `psych::fa` 이다. 이를 돌려보도록 하자.
+
+```{r EFA1}
+
+efa_result <- fa(raqData, nfactors = 4, rotate = "none")
+```
+
+아무튼, 그래서 도출되는 Factor Loading Matrix도 다르고 h2도 당연히 1이 아니고, 그러다보니 설명되는 Total Variance나 Eigenvalue 값도 당연히 PCA보다 작아지게 된다. 물론 Communalities Extraction을 더하면 Eigenvalue의 총합이 나온다.
+
+하나의 유의할 점은, eigenvalue의 하한(usually 1)을 설정해두지 않으면 SPSS의 경우는 Initial Eigenvalue \>= 1의 기준으로 Factor 개수를 설정하기 때문에 실제 Extracted Sums of Squared Loadings는 1을 넘지 않을 수 있다.
+
+Factor Analysis의 경우, 충분한 Iteration을 통해 요인화가 성공적으로 수렴할 수 있도록 해야 한다 (수렴의 원리는 수학적으로 고민해봐야할 듯). Factor Matrix의 경우 해석하는 방법 자체는 PCA와 동일하다. 예를 들어, 상관 행렬에 의거한 Pattern Matrix에서 각 원소는 Component와의 상관관계이므로 다음 두 식이 같다는 것이 성립한다.
+
+```{r EFA2}
+
+sum(efa_result$loadings[,1]^2) # 첫 요인의 loadings 제곱합
+efa_result$values[1] # PCA에서는 Eigenvalue값이지만 EFA에서는 그냥 SS loadings로 해석
+```
+
+-   ML(Maximum Likelihood) 방법에 대한 설명은 아직 구체적인 원리를 이해하려고 하지 않아서 나중에 보충하도록 하겠음.
+
+아무튼, EFA와 PCA의 다른 점을 정리해보자면, EFA는 Total Variance와 Total Variance Explained가 다르다. 즉 요인을 Full로 뽑아서 설명하려고 해도 Communality만으로 Total Variance(=1)을 모두 설명할 수 없기 때문이다(By Unique Variance). 그리고 Component Matrix를 구하기 위해 PCA는 원상관행렬을 사용한 반면, EFA는 축소상관행렬을 사용해야만 한다. 일단 기존의 상관행렬을 보면 Diagonal 항이 모두 1이다. 이 Diagonal에서 Uniqueness를 빼보자. 아래 코드를 보면 [1,1] 원소만 1 - uniqueness = communality가 된 것을 확인할 수 있다.
+
+```{r Reduced Coefficient Matrix}
+
+reducedRaq <- raqMatrix
+diag(reducedRaq) = diag(raqMatrix) - efa_result$uniquenesses
+reducedRaq[,1]
+efa_eigenvector <- eigen(reducedRaq)$vectors
+efa_eigenvalues <- eigen(reducedRaq)$values
+```
+
+여기서 reducedRaq의 Eigenvalue를 구해보면 위의 efa_result에서 구한 eigenvalue 값과 동일하게 나온다. 또한, eigenvector에다가 대응하는 eigenvalue의 제곱근을 구하면 efa_result에서 구한 Component Matrix가 나온다. 아래 코드를 실행하여 두 벡터의 결과가 같음을 확인하라.
+
+```{r EFA Component Matrix}
+
+efa_eigenvector[,1] * sqrt(efa_eigenvalues[1]) # 고유벡터에 대응하는 고윳값의 제곱근 곱하기
+efa_result$loadings[,1] # EFA Loadings의 첫 열
+```
+
+결국 EFA에서 Component Matrix를 얻기 위해 사용한 행렬은 원상관행렬의 대각성분에서 각 item들의 uniqueness를 뺀 것, 즉 각 item의 communality(h2)로 대체한 축소상관행렬을 eigen-decomposition한 것이다!!!
+
+### Rotation Methods
+
+크게 Orthogonal Rotation과 Oblique Rotation으로 나뉜다. Orthogonal Rotation(직교회전)은 추출된 요인들끼리 상관이 0이라고 가정하고 일정 각도만큼 요인축으로 회전하는 것이고, Oblique Rotation(사각회전)은 추출된 요인들의 상관이 있다고 가정하고 직교를 유지한 채로 회전하지는 않는다. 그림으로 이해하자.
+
+![](https://stats.oarc.ucla.edu/wp-content/uploads/2018/05/fig17b.png)
+
+Varimax 회전을 먼저 해보자. 코드는 다음과 같다.
+
+```{r EFA Varimax}
+
+efa_varimax <- fa(raqData, nfactors = 4, rotate = "varimax")
+```
+
+당연하게도 communality 값에는 변화가 없다. 물론 eigenvalue 각각의 값에는 변화가 있지만 (한 쪽에 쏠리지 않고 분산된 값의 형태), eigenvalue의 총합은 여전히 동일하다. 설명할 수 있는 총 분산의 양은 회전한다고 해서 변화하는 것은 아니기 때문이다. 다만 위에서 보는 그림과 같이 axis를 회전하여 해석을 쉽게할 수 있도록 변환시킨다(Rotated Factor Matrix). *안정화를 위해 Kaiser Normalization을 한다고는 하는데... 뭔지 잘 모르겠다. Item 전반에 걸쳐 communalities가 높으면 선호된다고 한다.*
+
+`efa_varimax$rot.mat` 코드를 통해 Factor Transformation Matrix를 확인할 수 있다. *근데 단순 rotation matrix라기에는 symmetric도 아니고... 어떤 원리로 저게 도출되는지는 잘 모르겠다. 4X4라서 그런가...*
+
+기본적인 원리 자체는 `efa_result$loadings %*% efa_varimax$rot.mat == efa_varimax$loadings` 라는 것이다. 즉, 회전을 하지 않은 기본 efa component matrix에 회전 변환 행렬을 곱한 것이 rotated matrix가 되는 식이다.
+
+**Varimax**는 높은 loading은 더 높게 만드는가 하면 낮은 loading은 더 낮게 만듦과 동시에(둘 간의 차이를 극대화), loading의 분산을 최대화한다. 이렇게 하면 단점은 첫 번째 major factor을 split up 하기 때문에 전반적인 요인을 탐지하는 능력은 떨어진다. **Quartimax**가 오히려 이 경우에는 더 적절할 수 있다. 한 가지 factor에 square loadings를 극대화하는 방식이기 때문이다. 수학적으로 왜 그런지 궁금하지만 한 세월이니까 일단 넘어가도록 한다.
+
+한편, Oblique 회전은 다음과 같다.
+
+![](https://stats.oarc.ucla.edu/wp-content/uploads/2018/05/fig19c.png)
+
+```{r EFA Oblique}
+
+efa_oblimin <- fa(raqData, nfactors = 4, rotate = "oblimin")
+```
+
+Oblique rotation을 하면 Pattern Matrix와 Structure Matrix를 얻게 된다. Pattern Matrix의 경우 각 item에 해당되는 행의 원소들은 각 factor들이 each item을 설명하는 regression coefficients이다. 이 coefficient를 각각 제곱하면 factor들이 item을 얼마나 설명하는가가 되며, 이는 factor끼리의 상관으로 인해 서로 overlap되는 variance를 감하고 난 설명량이 된다. 아래의 예를 보면, MR1 factor가 item1을 25%, MR4는 3% 설명한다는 이야기가 되며, 다른 factor을 통제했을 때 MR1의 Item1에 미치는 효과가 0.508이라는 의미가 된다 (마치 회귀계수와 같다). 대개 패턴행렬을 분석하는 것이 더 깔끔해 보인다.
+
+```{r EFA Oblique Example}
+
+efa_oblimin$loadings[1,]^2
+efa_oblimin$loadings[1,]
+```
+
+한편, Structure Matrix의 경우 각 Item에 해당되는 행의 원소들은 item과 각 factor들의 단순 상관이다. 예를 들어 아래 예시를 보면 0.585는 MR1과 item1 간의 단순 상관이 될 것이다. 또한, MR1은 each factor을 통제하지 않았을 때 34%를, MR4는 20%를 설명한다는 이야기가 된다. 일반적으로 패턴행렬의 값이 더 작게 나온다고 한다. 왜냐면 구조행렬에서는 다중공선성을 배제한 설명이 아니기 때문이다.
+
+```{r EFA Oblique Example 2}
+
+efa_oblimin$Structure[1,]^2
+efa_oblimin$Structure[1,]
+```
+
+그러면 이를 Factor Correlation Matrix와 곱해보자. `efa_oblimin$Phi` 에서 찾을 수 있다. Pattern Matrix에 Factor Correlation Matrix (요인들 관의 상관으로 인해 발생하는 회전 행렬) 을 곱하면 Structure Matrix이다. 궁금하면 `efa_oblimin$loadings %*% efa_oblimin$Phi == efa_oblimin$Structure` 을 실행해보자. 만약 직교행렬인 경우 요인들간의 상관이 0일테니 Factor Correlation Matrix는 Identity가 될 것이다. 이 경우 Pattern Matrix와 Structure Matrix는 동일하다.
+
+이 때 사각행렬은 요인들 간의 상관이 있는 것을 전제로 하므로, 각 Factor별 SS loadings값보다 크게 계산된다. "when factors are correlated, sums of squared loadings cannot be added to obtain total variance". 따라서 각 factor들이 유일하게 item을 설명하지 않고, factor 간에 겹치게 설명하는 부분이 있다는 이야기다.
+
+개인적인 생각으로는, 직교회전과는 다르게(직교회전은 Factor Loading 제곱합하면 그 값이 설명량을 의미한다고 볼 수 있다), Pattern Matrix와 Structure Matrix의 Loading 값을 Sum of Square 하는 것은 특별한 의미를 가지는 것 같지는 않다 (아니면 교정좀).
+
+끝으로, Pattern Matrix를 0.3 이상의 요인부하량만 표출되도록 하는 작업을 실행해보자.
+
+```{r EFA Oblique Result}
+
+print.psych(efa_oblimin, sort = TRUE, cut = 0.3)
+```
+
+#### Questions in EFA
+
+-   EFA에서 Initial Matrix 얻는 코드
+
+-   EFA에서 Iteration Convergence의 수학적 원리
+
+-   EFA에서 Initial Commonalities보다 Extracted Commonalities가 더 큰 이유는? (참고로 fa()에서 얻어지는 h2=communalities 값은 모두 Extracted 값에 해당됨; EFA에서 initial은 Multiple R square 값. 그냥 SPSS에서 나오는 거는 해석하려고 하지 말까?
+
+-   Oblique Rotation에서 Delta가 가지는 의미: Delta가 0이면 Quartimin?
+
+-   Oblique Rotation에서 Pattern Matrix와 Structure Matrix의 SS Loadings는 특별한 의미가 정말로 없는가?
+
+-   Rotation Matrix가 직교회전인데도 Symmetric이 아닐 수 있는가?
+
+-   What is Kaiser Normalization?
+
+-   수학적으로 Rotation별로 차이
+
+### Factor Score
+
+나중에 정리하겠다.

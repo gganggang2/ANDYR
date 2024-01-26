@@ -1,0 +1,385 @@
+---
+title: "Andy Field Statistics Sum Up!"
+author: "gganggang2"
+date: "2023-11-11"
+output:
+  html_document: default
+  word_document: default
+---
+
+### **Prerequisites**
+
+-   **표준편차**는 모집단의 분산의 양의 제곱근이고, **표준오차**는 표본평균들의 표준편차이다 (평균의 표준오차: Standard error of the mean, 줄여서 표준오차라 한다). 이 때 표본평균들의 분포를 표집분포(Sampling Distribution) 이라고 한다. 표준오차가 크다는 것은 서로 다른 표본들의 변이성이 크다는 것이다. 그만큼 추정의 불확실성이 증가한다고 할 수 있겠다.
+
+-   **측정오차**(Measurement Error)는 측정 과정상의 오류이다.
+
+-   비체계적 오차는 줄일 수 없고 (웬만하면), 체계적 오차를 최소화하는 것이 목표이다.
+
+#### **정규성 가정**
+
+-   **정규성 가정**은 히스토그램과 Q-Q Plot이나, `pastecs::stat.desc()` , `shapiro.test()` 를 이용할 수 있다.
+
+    -   `pastecs::stat.desc()` 는 basic = TRUE 을 통해 기초통계량을, norm = TRUE를 통해 분포에 관한 통계량을 표시한다. 이 때 skew.2SE와 kurt.2SE 항목을 통해 왜도와 첨도의 정도를 해석할 수 있고, normtest.W와 normtest.p도 정규성 가정을 검사한다.
+
+    -   `shapiro.test()` 를 통해 정규성 검정을 할 수 있다. 표본이 크면 정규분포를 조금만 벗어나도 유의한 결과가 나올 수 있음에 주의한다.
+
+#### **분산의 동질성 검정**
+
+-   분산의 동질성 검정은 `car::leveneTest()` 를 이용하자. 이는 levene의 분산 동질성 검정으로, 그룹화 변수에 요인으로 지정된 것을 대입해야 한다. center = mean/median을 통해 처리 방식 변경이 가능하다. 표본이 클 때는 분산이 그리 다르지 않아도 유의한 효과를 낼 수 있다 (유의하면 손해이다).
+
+#### **상관 (Correlation)**
+
+-   상관의 경우 기본적으로 `cor(), cor.test(), Hmisc::rcorr()` 을 사용할 수 있다. 상관계수의 종류에는 pearson, spearman, kendall이 있다. `cor()`은 단순 상관, `cor.test()`는 p값과 신뢰구간을 구하기 위해 사용한다.
+
+    -   **pearson's r**이 유의하려면 표집분포가 정규분포여야 한다.
+
+    -   **spaerman**은 비모수적 상관계수로 각 value들을 순위별로 ordering하여 이들의 pearson 상관계수를 구한다. 비모수적 상관계수이므로 정규성 가정을 위반하는 자료에 대하여 사용이 가능하다.
+
+    -   **kendall's tau**는 비모수적 상관계수로, 동순위 점수가 많거나 sample이 작을 때 효과적이라고 한다. concordant의 원리로 구해진다고 하는데 자세한 내용은 더 찾아봐야 한다. 대개 spaerman보다 0에 가까운 값을 가진다.
+
+    -   **이연 상관계수**는 그냥 한 변수가 이분형일 때 계산되는 상관계수이다. 점이연 상관계수는 이분형 변수가 연속성을 지닐 때 사용되는데 이연 상관계수를 이용하여 변환이 가능하다.
+
+-   **편상관**의 경우 다른 변수의 효과를 고정한 상태에서 두 변수의 상관을 보는 것인데, `ggm::pcor(), ggm::pcor.test()` 를 이용할 수 있다.
+
+------------------------------------------------------------------------
+
+## 7. Regression
+
+### Basic Components of Regression
+
+Adjusted R^2^ : 기본 R^2^는 예측변수의 개수가 늘어나면 따라서 늘어나는 경향이 있는데 조정된 R^2^의 경우 이를 보정한다. 이것은 자유도, 즉 예측변수의 개수에 증가에 대한 penalty를 부과하는 것과 비슷(?)
+
+t statistics in coefficient test : t값이 클수록 해당 예측변수의 영향력이 크다고 해석할 수 있나?`QuantPsyc::lm.beta` 를 이용하면 표준화된 베타 값을 구할 수 있다. 표준화된 베타값의 절대치를 비교하여 중요성을비교할 수 있나 like t값?
+
+`confint()` 를 이용하면 신뢰구간을 구할 수 있다. 신뢰구간의 개념을 복습하자면, 100개의 표본에서 구한 표본평균에 대한 신뢰구간 중 95개의 신뢰구간이 참값을 포함하고 있으면 95% 신뢰구간이다. 따라서 우리가 구한 (100개중 1개의 표본에서 구한) 신뢰구간은 95%의 도수 확률로 참값을 포함하고 있을 것이다. 좁을 수록 정확도 올라간다.
+
+`anova()` 를 통해 위계적 회귀 모델의 F 변화량을 검정하여, 모형의 향상 정도를 평가할 수 있다. 이 때 F(a,b)에서 F = MSR/MSE 로, a는 MSR의 자유도, b는 MSE의 자유도이고, a+b = N-1을 만족한다. a는 예측변수의 개수이다.
+
+**이상치(Outlier):** `resid()` 로 잔차를, `rstandard()` 로 표준화 잔차를, `rstudent()` 로 스튜던트화 잔차를 구한다.\
+**영향력(Leverage):** `cooks.distance()` 로 쿡의 거리를, `hatvalues()` 로 지렛대 값을, `covratio()` 로 공분산 비를, 그 밖에도 `dfbeta(), dffits()`를 이용할 수 있다.
+
+다음은 linear model의 잔차를 생성하는 과정의 예시이다.
+
+```{r residuals}
+album2 <- read.delim("Album Sales 2.dat")
+albumSales.3 <- lm(sales ~ adverts + airplay + attract, data = album2)
+album2$residuals <- resid(albumSales.3)
+head(album2$residuals, 10)
+```
+
+이어서, 표준화 잔차를 구하여 2표준편차보다 크거나 작은 값을 선별하여 개수를 구하는 과정이다.
+
+```{r large residuals, results = "hide"}
+album2$standardized.residuals <- rstandard(albumSales.3)
+album2$large.residual <- album2$standardized.residuals > 2 | album2$standardized.residuals < -2
+sum(album2$large.residual) # 개수 구하기
+album2[album2$large.residual, c("sales", "airplay", "standardized.residuals")]
+# 이렇게 하면 album2$large.residual = TRUE인 행만 볼 수 있게 된다.
+```
+
+독립성 가정의 평가: 오차의 독립성 가정을 더빈-왓슨 검정통계량을 이용해 평가할 수 있다. `car::durbinWatsonTest(), dwt()` 를 이용하여 실행 가능하다. 이 값은 2에 가까울 수록 좋다. 1보다 작거나 3보다 크면 주의가 요구된다.
+
+다중공선성의 평가: `car::vif()` 를 통해 분산팽창인자를, `1/vif()` 를 통해 VIF의 역수인 tolerance를 구할 수 있다. 이 때, VIF의 평균값을 알아보는 것도 도움이 된다. 평균 VIF가 1보다 확연히 크면 모형이 편향되었을 가능성이 있다.
+
+```{r dwt vif}
+car::durbinWatsonTest(albumSales.3)
+car::vif(albumSales.3)
+```
+
+### **About Residual Analysis**
+
+잔차 대 적합값 그래프를 통해 **비선형성(Non-linearity)**과 **이분산성(Heteroscedasticity)**을 확인한다. 이분산성은 깔때기 모양인 경우(잔차들의 변동이 패턴을 지니는 경우), 비선형성은 잔차 자체가 일정한 패턴을 보이는 경우 드러난다. **정규성(Normality)**의 경우 잔차의 히스토그램을`hist()` 를 이용하여 그리거나, Q-Q plot `(ggplot2::qplot())`을 생성하면 된다. 이는 직선에 가까울수록 정규성을 나타내는 것을 의미한다.
+
+위 그림은 Q-Q plot이고(정규성 가정), 아래 그림은 예측값과 표준화잔차 간의 산점도이다(등분산성, 선형성).
+
+```{r qqplot}
+
+library(ggplot2)
+qqplot.resid <- qplot(sample = album2$standardized.residuals) + stat_qq() +
+  labs(x = "Theoretical Values", y = "Observed Values")
+qqplot.resid
+```
+
+```{r residual vs fitted}
+
+album2$fitted <- albumSales.3$fitted.values
+scatter <- ggplot(album2, aes(fitted, standardized.residuals))
+scatter + geom_point() + geom_smooth(method = "lm", colour = "Blue") + 
+  labs(x = "Fitted Values", y = "Standardized Residual")
+```
+
+여기서 선형회귀분석의 가정들을 정리해보자면, 선형성 가정(linearity), 오차의 독립성 가정(iid), 정규성 가정(Normality), 등분산성(Homoscedasticity)이 있다. 또한, 다중공선성과 이상치(Outlier), 영향력(Leverage) 또한 고려해야 할 사항들이다.
+
+### Bootstrapping
+
+`객체 <- boot(자료, 함수, 반복)` : 이 때 '함수' 란 부트스트랩 방법을 적용할 통계량 계산 함수이다. 이 때 indices를 넣어야 한다. 다음과 같은 `bootReg` 함수를 만들어 본다고 하자.
+
+```{r bootReg}
+
+library(boot)
+
+#bootReg 함수 생성
+bootReg <- function (formula, data, indices){
+  d <- data [indices, ]
+  fit <- lm(formula, data = d)
+  return(coef(fit))
+}
+
+#bootstrapping
+bootResults <- boot(statistic = bootReg, formula = sales ~ adverts + airplay + attract, 
+                    data = album2, R = 2000)
+
+#boot.ci
+boot.ci(bootResults, type = "bca", index = 1)
+```
+
+이 때, `type = "bca"` 는 bias corrected accelerated로, 부트스트랩 신뢰구간의 instensive한 부분을 보완하고자 하는 데 있다 (부트스트랩은 정규성 가정을 두고 하는 것이 아니기 때문에)
+
+bootstrapping과 관련해서는 구체적인 사용 예시를 더 연구해보도록 하자 (ISLR에도 해당 예시가 많이 나와있다).
+
+### Multicategorical Regression
+
+```{r Dummy Coding 1, results = "hide"}
+
+gfr <- read.delim("GlastonburyFestivalRegression.dat", header = TRUE)
+gfr$music <- as.factor(gfr$music)
+contrasts(gfr$music) <- contr.treatment(4, base = 4)
+gfr$music
+```
+
+이렇게 하면 factor화된 variable의 4번 값을 baseline group으로 설정하게 된다. 이렇게 하는 방법이 있는가 하면, 각 Dummy Variable 이름을 내가 설정할 수 있는 방법이 있기도 하다.
+
+```{r Dummy Coding 2, results = "hide"}
+
+crusty_v_NMA <- c(1,0,0,0)
+indie_v_NMA <- c(0,1,0,0)
+metal_v_NMA <- c(0,0,1,0)
+contrasts(gfr$music) <- cbind(crusty_v_NMA, indie_v_NMA, metal_v_NMA)
+gfr$music
+```
+
+이를 이용하여 다범주형 회귀분석을 실시해보자.
+
+```{r Multicategorical Regression}
+
+glastonburyModel <- lm(change ~ music, data = gfr)
+summary(glastonburyModel)
+
+#사실 R이 Data file을 가져올 때 알아서 범주형 변수를 Factorize 한다고는 한다. 하지만 첫째 변수를 reference group으로 삼기 때문에 변경을 위해서는 위와 같은 조작이 필요하다.
+```
+
+### Proof
+
+-   선형회귀분석의 식을 유도하고, 절편과 회귀계수를 유도하라.
+
+-   회귀계수를 검정하는 방법을 수식으로 기술하라.
+
+-   최소제곱법의 원리를 수식으로 기술하라.
+
+------------------------------------------------------------------------
+
+## 8. Logistic Regression
+
+-   결과 변수(Y)의 범주가 2개이면 이항 로지스틱, 3개 이상이면 다항 로지스틱이다.
+
+-   -2LL: 이탈도는 로그 가능도에 -2를 곱한 것으로, 로그 가능도는 예측값들과 실제 관측값들에 관한 확률들의 합으로, 모형이 적합된 후에도 여전히 설명되지 않는 정보의 양을 나타낸다. 여기에 -2를 곱한 이탈도 -2LL은 작을수록 좋은 값이다. 이 때 -2LL은 카이제곱분포를 따른다.
+
+-   AIC와 BIC는 모형에 변수를 추가할 때마다 R-square 값이 증가한다는 문제점을 해결하기 위한 기준으로, penalty를 반영한다. 여기서 AIC = -2LL + 2k, BIC = -2LL + 2k\*log(n)으로 사례 수를 반영해서 조정한 것이다. -2LL이 작을수록 좋은 값이니까 AIC, BIC도 작을수록 좋은 값이다.
+
+-   오즈비는 승산의 비로, 승산(Odds)이란 어떤 사건이 발생할 확률을 그 사건이 발생하지 않을 확률로 나눈 것이다. 이 때 승산의 변화 비, 즉 예측변수의 1단위 변경 이후의 승산과 원래의 승산의 비가 바로 오즈비(승산비)이다. 이 값이 1보다 크다는 것은 예측변수가 증가하면 결과가 발생할 승산도 증가한다는 뜻이다. 참고로 승산(Odds)에 로그를 취하면 로짓(Logit)이 된다.
+
+-   로지스틱 회귀의 기본 가정은 선형 회귀분석과 비슷하게 1) 예측 변수와 로짓의 선형성, 2) 다중공선성의 부재, 3) 오차의 독립성 가정이다.
+
+### Lab
+
+```{r path, results = "hide", include = FALSE}
+
+setwd("/Users/seongminpark/Desktop/DS/ANDY")
+```
+
+```{r chp8_1, results= "hide", include = FALSE}
+
+eelData <- read.delim("Data files/eel.dat", header = TRUE)
+eelData$Cured <- as.factor(eelData$Cured)
+eelData$Intervention <- as.factor(eelData$Intervention)
+
+# relevel(요인, 원하는 기저범주): 요인의 기저 범주 명시적 지정
+
+eelData$Cured <- relevel(eelData$Cured, "Not Cured")
+eelData$Intervention <- relevel(eelData$Intervention, "No Treatment")
+```
+
+```{r chp8_2, results= "hide", include = FALSE}
+
+# glm(Y~X, data, 분포의 종류, 결측값 처리방식)
+
+eelModel.1 <- glm(Cured ~ Intervention, data = eelData, family = binomial())
+eelModel.2 <- glm(Cured ~ Intervention + Duration, data = eelData, family = binomial())
+
+summary(eelModel.1)
+summary(eelModel.2)
+
+# chi-square test for significance of -2LL deviacne btw null and residual model
+
+modelChi <- eelModel.1$null.deviance - eelModel.1$deviance
+chidf <- eelModel.1$df.null - eelModel.1$df.residual
+chisq.prob <- 1 - pchisq(modelChi, chidf)
+
+# Odds ratio for each coefficients
+exp(eelModel.1$coefficients)
+exp(eelModel.2$coefficients)
+
+# Confidence interval of Odds ratio
+exp(confint(eelModel.1))
+exp(confint(eelModel.2))
+```
+
+#### 로지스틱 회귀분석의 해석 (1)
+
+**이탈도**
+
+```         
+Null deviance: 154.08  on 112  degrees of freedom
+Residual deviance: 144.16  on 111  degrees of freedom
+AIC: 148.16
+```
+
+Null deviance는 절편만 있는 기저모형, Residual deviance는 새 모형의 이탈도이다. 이탈도는 작을수록 좋으므로 새 모형의 이탈도가 기저모형보다 작아야 한다. 작아야 결과변수를 더 정확하게 예측한다는 뜻이기 때문이다. 두 차이가 유의한지를 체크하면 두 차이는 카이제곱 분포를 따르므로 두 이탈도의 차이인 9.92를 자유도의 변화량 1에 맞게 카이제곱 분포를 확인해서 유의성을 체크하면 되겠다.
+
+결과값이 0.002 수준이므로 이는 0.05보다 작은 값을 가져 Intervention 변수 투입이 유의했다고 할 수 있다.
+
+**계수 해석**
+
+```         
+Coefficients:
+                         Estimate Std. Error z value Pr(>|z|)   
+(Intercept)               -0.2877     0.2700  -1.065  0.28671   
+InterventionIntervention   1.2287     0.3998   3.074  0.00212 **
+```
+
+여기서 계수는 X 1단위 변화에 따른 결과의 '로짓' 의 변화량이다. Z 통계량을 해석할 때는 회귀계수가 커서 표준오차가 상승하여 Z value가 과소평가될 가능성이 존재한다. 어쨌든 여기서는 유의하니까 저 변수는 Cured에 대한 유의한 예측변수이다.
+
+**승산비**
+
+로지스틱 회귀방정식에 위의 계수를 대입하여 P(Y)를 구하자. 예측변수가 범주형이고 X가 0일 때가 '개입 없음', X가 1일 때가 '개입 있음' 이므로 각각을 대입하여 P(Y)와 1-P(Y)를 구해서 그들의 비를 비교하면 된다. 이를 이용하여 승산의 변화량, 즉 예측변수 1단위 변경 이후의 승산과 원래의 승산의 비를 확인할 수 있다. 이걸 수식으로 확인해보면, 회귀계수 b1에 exp 취한 것이랑 같은 값인 것을 확인할 수 있다.
+
+```         
+   (Intercept) InterventionIntervention 
+                0.750000                 3.416667 
+```
+
+Intervention에 대한 오즈비가 3.417임을 확인하라. 이 때 이 값이 1보다 크다는 것은 예측변수가 증가하면 결과가 발생할 승산도 증가한다는 뜻이고, 1보다 작다는 것은 예측변수가 증가하면 결과가 발생할 승산이 감소한다는 뜻이다. 이 예에서는 Intervention = 1일 때 환자가 Intervention = 0일 때 환자가 치료될 승산의 3.417배임을 의미한다.
+
+```         
+                             2.5 %   97.5 %
+(Intercept)              0.4374531 1.268674
+InterventionIntervention 1.5820127 7.625545
+```
+
+신뢰구간은 다음과 같다. 모집단의 승산비가 100개 중 95개는 저 구간 안에 들어가는 것으로 생각해볼 수 있다 (그것이 신뢰구간의 의미니까). 이 신뢰구간에 1이 포함되지 않으므로 모집단에서도 Intervention = 1인 경우 치료될 승산이 증가할 것으로 추론해볼 수 있는 것이다 (이 때 승산이 증가한다는 것은 P(Y=1)이 증가한다는 것으로 해석할 수 있다).
+
+#### 로지스틱 회귀분석의 해석 (2)
+
+```         
+    Null deviance: 154.08  on 112  degrees of freedom
+Residual deviance: 144.16  on 110  degrees of freedom
+AIC: 150.16
+```
+
+```{r chp8 Anova}
+
+# 두 모형의 deviance 차이 유의성 검정
+
+anova(eelModel.1, eelModel.2)
+1-pchisq(0.0019835, 1)
+```
+
+```         
+Coefficients:
+                          Estimate Std. Error z value Pr(>|z|)   
+(Intercept)              -0.234660   1.220563  -0.192  0.84754   
+InterventionIntervention  1.233532   0.414565   2.975  0.00293 **
+Duration                 -0.007835   0.175913  -0.045  0.96447   
+```
+
+```         
+(Intercept) InterventionIntervention                 Duration 
+               0.7908401                3.4333349                0.9921954 
+```
+
+```         
+                              2.5 %   97.5 %
+(Intercept)              0.06947323 8.699169
+InterventionIntervention 1.54651158 7.911564
+Duration                 0.70144313 1.406691
+```
+
+하나씩 해석해보자.
+
+1.  두 모형의 이탈도에 큰 변화가 없다. 이는 모형에 큰 개선이 없음을 의미한다. AIC 또한 모형 1이 모형 2보다 작으므로 모형 1이 더 나은 것임을 의미한다. 그래도 기저 모형이랑 모형 2의 Chi-square test를 진행해 보면 그건 유의한 차이가 있을 것이다.
+2.  두 모형의 이탈도의 차이를 비교해보자. 각각의 residual끼리 서로 빼거나, anova를 이용하는 방법이 있겠다. 보면 이탈도 차이는 0.00198이고 자유도 차이는 1이므로 이를 카이제곱분포에 적용하면 유의하지 않은 확률 값을 얻게 된다. 즉 모형2가 모형 1에 비해 유의한 개선이 이루어지지 않았음을 의미한다.
+3.  Intervention 계수는 여전히 유의하나 Duration은 유의하지 않다. 오즈비의 신뢰구간을 살펴봐도 Duration은 1을 포함하고 있는 것을 확인할 수 있다. 이는 Duration이 한 단위 증가한다고 해도 치료될 승산이 증가할 지 감소할 지 알 수 없다는 것을 의미한다.
+4.  승산비를 효과크기로 사용한다.
+
+```{r diagnostic statistics}
+
+eelData$predicted.probabilities<-fitted(eelModel.1) # 예측된 확률 값 P(Y) 계산
+eelData$standardized.residuals<-rstandard(eelModel.1) # 표준화 잔차
+eelData$studentized.residuals<-rstudent(eelModel.1) # 스튜던트화 잔차
+eelData$dfbeta<-dfbeta(eelModel.1) # DFBeta
+eelData$dffit<-dffits(eelModel.1) # DFfits
+eelData$leverage<-hatvalues(eelModel.1) # Leverage values 
+```
+
+-   예측 변수가 결과 변수의 로짓과 선형 관계인지 점검할 필요가 있다. 즉, 각 예측변수들에 로그를 취한 값과 예측변수의 상호작용 항을 새로 생성하여 분석을 실행해본다. 이 때 Z-value가 유의하지 않으면 선형성 가정을 만족한다는 뜻이다.
+
+#### 다항 로지스틱 회귀분석
+
+```{r chatData, results = "hide", include = FALSE}
+
+# 주소 에러 왜 나는 걸까?
+
+install.packages("mlogit")
+library(mlogit)
+chatData<-read.delim("/Users/seongminpark/Desktop/DS/ANDY/Data files/Chat-Up Lines.dat", header = TRUE) 
+chatData$Success <- as.factor(chatData$Success)
+chatData$Gender <- as.factor(chatData$Gender) # chr -> fac change. Reference of the factor group is designated by following an alphabetical order. e.g. Female = 0, Male = 1
+chatData$Gender <- relevel(chatData$Gender, ref = 2) # reference is Male
+chatData$Success <- relevel(chatData$Success, ref = 3)
+```
+
+```{r multi logit_1, results = "hide"}
+
+# Set proper data for analyze logistic regression
+mlChat <- mlogit.data(chatData, choice = "Success", shape = "wide")
+
+# logistic regression analysis
+chatModel <- mlogit(Success ~ 1 | Good_Mate + Funny + Gender + Sex + Gender:Sex + Funny:Gender, data = mlChat, reflevel = "No response/Walk Off")
+summary(chatModel)
+chatBase <- mlogit(Success ~ 1, data = mlChat, reflevel = "No response/Walk Off")
+
+# Odds Ratio
+chatOdds <- data.frame(exp(chatModel$coefficients))
+chatConfint <- exp(confint(chatModel))
+```
+
+여기서 눈여겨볼 부분 중 하나는 Likelihood ratio test이다. 이는 Base model의 LL값과 위 모델의 LL값 차이에 2를 곱한 것(chisq = 278.52)이다. 해당 -2LL 값은 카이제곱 분포를 따른다. 해당 변화는 유의하므로 최종 모형이 원래 모형보다 변이성을 유의하게 더 많이 설명한다고 할 수 있다.
+
+```         
+Likelihood ratio test : chisq = 278.52 (p.value = < 2.22e-16)
+```
+
+결과는 reference class에 비해서 해당 class의 승산이 어떻게 변화하는지 살펴보고, 신뢰구간 안에 들어가는지를 잘 살펴보도록 한다. 예를 들어 Funny X Gender에서 b = 0.49이고 유의하다고 나온다. 또한, 승산비는 약 1.64로, Gender가 1 증가할 때(Female일 때) Funny가 1 증가하면 번따에 대한 승산이 1.64배 된다는 뜻이고 이는 곳 번따 확률이 증가하는 것으로 해석할 수 있다. 신뢰구간 또한 LLCI = 1.24, ULCI = 2.15인 것으로 보아 1이 포함되지 않으므로 b가 유의한 것에 상응하는 결과이다.
+
+본 Andy Field에서 사용한 mlogit 패키지가 왜인지 제대로 작동하지 않는 것 같아서 code만 복사하였다. 추후 multinomial logistic regression을 R로 시행하는 방법을 연구해야 할 듯 하다.
+
+### Proof
+
+-   -2LL은 카이제곱분포를 따름을 보여라.
+
+-   로지스틱 회귀분석의 방정식을 기술하여라.
+
+### Question
+
+-   왜 너는 t-value가 아닌 것이냐
+-   잔차 분석에 대하여
