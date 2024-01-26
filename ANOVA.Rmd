@@ -1,0 +1,15 @@
+---
+title: "ANOVA"
+author: "SMPARK"
+date: "2024-01-03"
+output: html_document
+---
+
+```{r chp9_set, results = "hide", include = FALSE}
+
+install.packages("pastecs")
+install.packages("WRS2")
+library(ggplot2); library(pastecs); library(WRS2)
+spiderLong <- as.data.frame(read.delim("/Users/seongminpark/Desktop/DS/ANDY/Data files/SpiderLong.dat"))
+spiderWide <- as.data.frame(read.delim("/Users/seongminpark/Desktop/DS/ANDY/Data files/SpiderWide.dat"))
+```
