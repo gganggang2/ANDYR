@@ -1,13 +1,13 @@
 ---
-title: "Andy Field Statistics Sum Up!"
+title: "ANDY FIELD REGRESSION (chp 6~8)"
 author: "gganggang2"
-date: "2023-11-11"
+date: "2024-04-01"
 output:
   html_document: default
   word_document: default
 ---
 
-```{r setwd, include = FALSE, echo = FALSE, results = "hide"}
+```{r setwd, include = FALSE, results = "hide"}
 
 setwd("/Users/seongminpark/Desktop/DS/ANDYR/Data files")
 ```
@@ -66,7 +66,7 @@ t statistics in coefficient test : t값이 클수록 해당 예측변수의 영�
 다음은 linear model의 잔차를 생성하는 과정의 예시이다.
 
 ```{r residuals}
-album2 <- read.delim("Album Sales 2.dat")
+album2 <- read.delim("/Users/seongminpark/Desktop/DS/ANDYR/Data files/Album Sales 2.dat")
 albumSales.3 <- lm(sales ~ adverts + airplay + attract, data = album2)
 album2$residuals <- resid(albumSales.3)
 head(album2$residuals, 10)
@@ -146,7 +146,7 @@ bootstrapping과 관련해서는 구체적인 사용 예시를 더 연구해보�
 
 ```{r Dummy Coding 1, results = "hide"}
 
-gfr <- read.delim("GlastonburyFestivalRegression.dat", header = TRUE)
+gfr <- read.delim("/Users/seongminpark/Desktop/DS/ANDYR/Data files/GlastonburyFestivalRegression.dat", header = TRUE)
 gfr$music <- as.factor(gfr$music)
 contrasts(gfr$music) <- contr.treatment(4, base = 4)
 gfr$music
@@ -197,14 +197,9 @@ summary(glastonburyModel)
 
 ### Lab
 
-```{r path, results = "hide", include = FALSE}
-
-setwd("/Users/seongminpark/Desktop/DS/ANDY")
-```
-
 ```{r chp8_1, results= "hide", include = FALSE}
 
-eelData <- read.delim("Data files/eel.dat", header = TRUE)
+eelData <- read.delim("/Users/seongminpark/Desktop/DS/ANDYR/Data files/eel.dat", header = TRUE)
 eelData$Cured <- as.factor(eelData$Cured)
 eelData$Intervention <- as.factor(eelData$Intervention)
 
@@ -342,11 +337,8 @@ eelData$leverage<-hatvalues(eelModel.1) # Leverage values
 
 ```{r chatData, results = "hide", include = FALSE}
 
-# 주소 에러 왜 나는 걸까?
-
-install.packages("mlogit")
 library(mlogit)
-chatData<-read.delim("/Users/seongminpark/Desktop/DS/ANDY/Data files/Chat-Up Lines.dat", header = TRUE) 
+chatData<-read.delim("/Users/seongminpark/Desktop/DS/ANDYR/Data files/Chat-Up Lines.dat", header = TRUE) 
 chatData$Success <- as.factor(chatData$Success)
 chatData$Gender <- as.factor(chatData$Gender) # chr -> fac change. Reference of the factor group is designated by following an alphabetical order. e.g. Female = 0, Male = 1
 chatData$Gender <- relevel(chatData$Gender, ref = 2) # reference is Male
