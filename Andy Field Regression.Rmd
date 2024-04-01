@@ -7,6 +7,11 @@ output:
   word_document: default
 ---
 
+```{r setwd, include = FALSE, echo = FALSE, results = "hide"}
+
+setwd("/Users/seongminpark/Desktop/DS/ANDYR/Data files")
+```
+
 ### **Prerequisites**
 
 -   **표준편차**는 모집단의 분산의 양의 제곱근이고, **표준오차**는 표본평균들의 표준편차이다 (평균의 표준오차: Standard error of the mean, 줄여서 표준오차라 한다). 이 때 표본평균들의 분포를 표집분포(Sampling Distribution) 이라고 한다. 표준오차가 크다는 것은 서로 다른 표본들의 변이성이 크다는 것이다. 그만큼 추정의 불확실성이 증가한다고 할 수 있겠다.
